@@ -25,8 +25,8 @@ Shader "_Clouds/Clouds Unlit Vertex Color"
 		_NoiseStrengthC("Noise Strength C", Range( 0 , 1)) = 0
 		_textureDetail("textureDetail", Range( 0 , 1)) = 0
 		_TextureColor("Texture Color", Color) = (0,0,0,0)
-		_Tiling("Tiling", Vector) = (0,0,0,0)
-		_Fallof("Fallof", Float) = 0
+		_Tiling("Tiling", Vector) = (0.04,0.04,0,0)
+		_Fallof("Fallof", Float) = 1
 		_VertexColorMult("Vertex Color Mult", Float) = 1
 		_RimColor("Rim Color", Color) = (0,0,0,0)
 		_FresnelBSP("FresnelBSP", Vector) = (0,0,0,0)
@@ -239,19 +239,17 @@ Shader "_Clouds/Clouds Unlit Vertex Color"
 
 		void vertexDataFunc( inout appdata_full v )
 		{
-			float3 objToWorldDir239 = mul( unity_ObjectToWorld, float4( float3(0,1,0), 0 ) ).xyz;
+			float3 objectUp = float3( 0, 1, 0 );
 			float mulTime15 = _Time.y * _SpeedA;
-			float3 ase_worldPos = mul( unity_ObjectToWorld, v.vertex );
+			float3 ase_worldPos = mul( unity_ObjectToWorld, v.vertex ).xyz;
 			float simplePerlin3D3 = snoise( ( ( _DirectionA * mulTime15 ) + ( _3dNoiseSizeA * ( ase_worldPos * _NoiseScaleA ) ) ) );
 			float temp_output_8_0 = (0.0 + (simplePerlin3D3 - -1.0) * (1.0 - 0.0) / (1.0 - -1.0));
-			float3 objToWorldDir213 = mul( unity_ObjectToWorld, float4( float3(0,1,0), 0 ) ).xyz;
 			float mulTime75 = _Time.y * _SpeedB;
 			float simplePerlin3D78 = snoise( ( ( _DirectionB * mulTime75 ) + ( _3dNoiseSizeB * ( ase_worldPos * _NoiseScaleB ) ) ) );
-			float3 objToWorldDir257 = mul( unity_ObjectToWorld, float4( float3(0,1,0), 0 ) ).xyz;
 			float mulTime248 = _Time.y * _SpeedC;
 			float3 temp_output_252_0 = ( ( _DirectionC * mulTime248 ) + ( _3dNoiseSizeC * ( ase_worldPos * _NoiseScaleC ) ) );
 			float simplePerlin3D255 = snoise( temp_output_252_0 );
-			v.vertex.xyz += ( ( objToWorldDir239 * _NoiseStrengthA * temp_output_8_0 ) + ( objToWorldDir213 * (0.0 + (simplePerlin3D78 - -1.0) * (1.0 - 0.0) / (1.0 - -1.0)) * _NoiseStrengthB ) + ( objToWorldDir257 * (0.0 + (simplePerlin3D255 - -1.0) * (1.0 - 0.0) / (1.0 - -1.0)) * _NoiseStrengthC ) );
+			v.vertex.xyz += ( ( objectUp * _NoiseStrengthA * temp_output_8_0 ) + ( objectUp * (0.0 + (simplePerlin3D78 - -1.0) * (1.0 - 0.0) / (1.0 - -1.0)) * _NoiseStrengthB ) + ( objectUp * (0.0 + (simplePerlin3D255 - -1.0) * (1.0 - 0.0) / (1.0 - -1.0)) * _NoiseStrengthC ) );
 		}
 
 			inline half4 LightingCustomCloud( SurfaceOutput s, half3 lightDir, half atten )
@@ -283,7 +281,7 @@ Shader "_Clouds/Clouds Unlit Vertex Color"
 				float simplePerlin2D374 = snoise( ( appendResult376 * 0.1 ) );
 				float4 lerpResult210 = lerp( saturate( ( pow( i.vertexColor , 0.454545 ) * _VertexColorMult ) ) , _TextureColor , ( ( ( 1.0 - triplanar194.x ) * _textureDetail ) * saturate( NoiseA366 ) * (0.25 + (simplePerlin2D374 - -1.0) * (1.0 - 0.25) / (1.0 - -1.0)) ));
 				float3 ase_worldViewDir = normalize( UnityWorldSpaceViewDir( ase_worldPos ) );
-				float fresnelNdotV346 = dot( ase_worldNormal, ase_worldViewDir );
+				float fresnelNdotV346 = saturate( dot( ase_worldNormal, ase_worldViewDir ) );
 				float fresnelNode346 = ( _FresnelBSP.x + _FresnelBSP.y * pow( 1.0 - fresnelNdotV346, _FresnelBSP.z ) );
 				float3 baseColor = saturate( lerpResult210.rgb );
 
@@ -293,7 +291,7 @@ Shader "_Clouds/Clouds Unlit Vertex Color"
 				float thickness = rawDensity * (0.3 + 0.7 * viewThickness);
 
 				// --- Fresnel-based edge alpha ---
-				float edgeAlpha = saturate( fresnelNdotV346 * _EdgeFade + 0.2 );
+				float edgeAlpha = saturate( ( 1.0 - fresnelNdotV346 ) * _EdgeFade + 0.2 );
 				o.Alpha = edgeAlpha * saturate( rawDensity + 0.3 );
 
 		#ifndef UNITY_PASS_SHADOWCASTER
@@ -307,8 +305,11 @@ Shader "_Clouds/Clouds Unlit Vertex Color"
 				powder = saturate( powder );
 
 				// Light
-				float3 lightDir = normalize( _WorldSpaceLightPos0.xyz );
-				float3 lightColor = _LightColor0.rgb;
+				float3 lightVector = _WorldSpaceLightPos0.xyz - ( ase_worldPos * _WorldSpaceLightPos0.w );
+				float lightDistance = max( length( lightVector ), 0.0001 );
+				float3 lightDir = lightVector / lightDistance;
+				float lightAtten = lerp( saturate( 1.0 / ( 1.0 + lightDistance * lightDistance ) ), 1.0, 1.0 - _WorldSpaceLightPos0.w );
+				float3 lightColor = _LightColor0.rgb * lightAtten;
 
 				// Wrap diffuse
 				float NdotL = dot( ase_worldNormal, lightDir );
