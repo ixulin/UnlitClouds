@@ -40,6 +40,7 @@ Shader "_Clouds/Clouds Unlit Vertex Color"
 		_AmbientGroundColor("Ambient Ground", Color) = (0.15,0.12,0.1,1)
 		_PowderEffect("Powder Effect", Range( 0 , 2)) = 1.0
 		_LightMultiplier("Light Multiplier", Range( 0 , 5)) = 1.0
+		_EdgeFade("Edge Fade", Range( 0.01 , 5)) = 1.0
 		[HideInInspector] __dirty( "", Int ) = 1
 	}
 
@@ -71,7 +72,6 @@ Shader "_Clouds/Clouds Unlit Vertex Color"
 			float4 vertexColor : COLOR;
 			float3 worldNormal;
 			INTERNAL_DATA
-				float4 screenPos;
 		};
 
 		uniform float _NoiseStrengthA;
@@ -110,7 +110,7 @@ Shader "_Clouds/Clouds Unlit Vertex Color"
 		uniform float4 _AmbientGroundColor;
 		uniform float _PowderEffect;
 		uniform float _LightMultiplier;
-		sampler2D_float _CameraDepthTexture;
+		uniform float _EdgeFade;
 
 
 		float3 mod3D289( float3 x ) { return x - floor( x / 289.0 ) * 289.0; }
@@ -270,7 +270,7 @@ Shader "_Clouds/Clouds Unlit Vertex Color"
 				float3 ase_worldPos = i.worldPos;
 				float3 ase_worldNormal = WorldNormalVector( i, float3( 0, 0, 1 ) );
 
-				// --- Existing noise & texture computations (unchanged) ---
+				// --- Existing noise & texture computations ---
 				float mulTime248 = _Time.y * _SpeedC;
 				float3 temp_output_252_0 = ( ( _DirectionC * mulTime248 ) + ( _3dNoiseSizeC * ( ase_worldPos * _NoiseScaleC ) ) );
 				float3 NoiseWorldPos364 = temp_output_252_0;
@@ -285,65 +285,61 @@ Shader "_Clouds/Clouds Unlit Vertex Color"
 				float3 ase_worldViewDir = normalize( UnityWorldSpaceViewDir( ase_worldPos ) );
 				float fresnelNdotV346 = dot( ase_worldNormal, ase_worldViewDir );
 				float fresnelNode346 = ( _FresnelBSP.x + _FresnelBSP.y * pow( 1.0 - fresnelNdotV346, _FresnelBSP.z ) );
+				float3 baseColor = saturate( lerpResult210.rgb );
 
-				// --- HZD Lighting: Density estimation ---
+				// --- Density from vertex color alpha + noise ---
 				float rawDensity = saturate( i.vertexColor.a * _DensityScale * (0.5 + 0.5 * NoiseA366) );
 				float viewThickness = saturate( 1.0 - fresnelNdotV346 );
 				float thickness = rawDensity * (0.3 + 0.7 * viewThickness);
 
-				// --- HZD Lighting: Beer-Lambert ---
+				// --- Fresnel-based edge alpha ---
+				float edgeAlpha = saturate( fresnelNdotV346 * _EdgeFade + 0.2 );
+				o.Alpha = edgeAlpha * saturate( rawDensity + 0.3 );
+
+		#ifndef UNITY_PASS_SHADOWCASTER
+				// === HZD Lighting (forward pass only) ===
+
+				// Beer-Lambert
 				float beersLaw = exp( -thickness * _Absorption );
 
-				// --- HZD Lighting: Beer-Powder (multi-scattering) ---
+				// Beer-Powder (multi-scattering)
 				float powder = pow( max(beersLaw, 0.001), 0.25 ) + 1.0 - pow( max(1.0 - beersLaw, 0.001), 4.0 );
 				powder = saturate( powder );
 
-				// --- HZD Lighting: Light direction & color ---
+				// Light
 				float3 lightDir = normalize( _WorldSpaceLightPos0.xyz );
 				float3 lightColor = _LightColor0.rgb;
 
-				// --- HZD Lighting: Wrap diffuse ---
+				// Wrap diffuse
 				float NdotL = dot( ase_worldNormal, lightDir );
 				float wrapDiffuse = saturate( (NdotL + _WrapLighting) / (1.0 + _WrapLighting) );
 
-				// --- HZD Lighting: Henyey-Greenstein phase function ---
+				// Henyey-Greenstein phase
 				float cosTheta = dot( lightDir, ase_worldViewDir );
 				float phase = HenyeyGreenstein( _PhaseG, cosTheta );
 				float isotropic = 1.0 / (4.0 * 3.14159265);
 				float phaseBlended = lerp( isotropic, phase, _PhaseStrength );
 
-				// --- HZD Lighting: Combine direct lighting ---
-				float3 baseColor = saturate( lerpResult210.rgb );
+				// Direct lighting
 				float3 directLight = baseColor * lightColor;
-
-				// Diffuse with Beer-Lambert extinction
 				float3 diffuseContrib = directLight * wrapDiffuse * beersLaw;
-
-				// Forward scattering (silver lining)
 				float3 scatterContrib = directLight * phaseBlended * 2.0 * (1.0 - beersLaw);
-
-				// Powder brightening on sunlit side
 				float3 powderContrib = directLight * powder * _PowderEffect * 0.5;
-
 				float3 litColor = (diffuseContrib + scatterContrib + powderContrib) * _LightMultiplier;
 
-				// --- HZD Lighting: Ambient gradient ---
-				float normalY = ase_worldNormal.y;
-				float ambientBlend = saturate( normalY * 0.5 + 0.5 );
+				// Ambient gradient
+				float ambientBlend = saturate( ase_worldNormal.y * 0.5 + 0.5 );
 				float3 ambientColor = lerp( (float3)_AmbientGroundColor, (float3)_AmbientSkyColor, ambientBlend );
 				float3 ambientContrib = ambientColor * baseColor * 0.35;
 
-				// --- Fresnel rim ---
+				// Fresnel rim
 				float3 rimContrib = fresnelNode346 * (float3)_RimColor;
 
-				// --- Final emission ---
 				o.Emission = litColor + ambientContrib + rimContrib;
-
-				// --- Depth fade alpha ---
-				float rawDepth = LinearEyeDepth( SAMPLE_DEPTH_TEXTURE_PROJ( _CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos) ) );
-				float sceneDepth = rawDepth - i.screenPos.w;
-				float depthFade = saturate( sceneDepth / max(_Fallof, 0.001) );
-				o.Alpha = depthFade * saturate( rawDensity + 0.3 );
+	#else
+				// Shadow caster: no lighting needed
+				o.Emission = baseColor;
+	#endif
 			}
 
 			ENDCG
