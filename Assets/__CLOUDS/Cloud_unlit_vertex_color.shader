@@ -30,13 +30,25 @@ Shader "_Clouds/Clouds Unlit Vertex Color"
 		_VertexColorMult("Vertex Color Mult", Float) = 1
 		_RimColor("Rim Color", Color) = (0,0,0,0)
 		_FresnelBSP("FresnelBSP", Vector) = (0,0,0,0)
+		// HZD Lighting
+		_Absorption("Light Absorption", Range( 0.1 , 10)) = 2.0
+		_DensityScale("Density Scale", Range( 0 , 5)) = 1.0
+		_PhaseG("HG Phase G", Range( -0.99 , 0.99)) = 0.4
+		_PhaseStrength("Phase Strength", Range( 0 , 3)) = 1.0
+		_WrapLighting("Wrap Lighting", Range( 0 , 1)) = 0.5
+		_AmbientSkyColor("Ambient Sky", Color) = (0.6,0.7,0.9,1)
+		_AmbientGroundColor("Ambient Ground", Color) = (0.15,0.12,0.1,1)
+		_PowderEffect("Powder Effect", Range( 0 , 2)) = 1.0
+		_LightMultiplier("Light Multiplier", Range( 0 , 5)) = 1.0
 		[HideInInspector] __dirty( "", Int ) = 1
 	}
 
 	SubShader
 	{
-		Tags{ "RenderType" = "Opaque"  "Queue" = "Geometry+0" "IgnoreProjector" = "True" "IsEmissive" = "true"  }
+		Tags{ "RenderType" = "Transparent"  "Queue" = "Transparent+0" "IgnoreProjector" = "True" "IsEmissive" = "true"  }
 		Cull Back
+			Blend SrcAlpha OneMinusSrcAlpha
+			ZWrite Off
 		CGINCLUDE
 		#include "UnityShaderVariables.cginc"
 		#include "Tessellation.cginc"
@@ -59,6 +71,7 @@ Shader "_Clouds/Clouds Unlit Vertex Color"
 			float4 vertexColor : COLOR;
 			float3 worldNormal;
 			INTERNAL_DATA
+				float4 screenPos;
 		};
 
 		uniform float _NoiseStrengthA;
@@ -87,6 +100,17 @@ Shader "_Clouds/Clouds Unlit Vertex Color"
 		uniform float _TessValue;
 		uniform float _TessMin;
 		uniform float _TessMax;
+		// HZD Lighting uniforms
+		uniform float _Absorption;
+		uniform float _DensityScale;
+		uniform float _PhaseG;
+		uniform float _PhaseStrength;
+		uniform float _WrapLighting;
+		uniform float4 _AmbientSkyColor;
+		uniform float4 _AmbientGroundColor;
+		uniform float _PowderEffect;
+		uniform float _LightMultiplier;
+		sampler2D_float _CameraDepthTexture;
 
 
 		float3 mod3D289( float3 x ) { return x - floor( x / 289.0 ) * 289.0; }
@@ -186,6 +210,28 @@ Shader "_Clouds/Clouds Unlit Vertex Color"
 		}
 
 
+		float fbm3D( float3 p, float lacunarity, float gain )
+		{
+			float sum = 0.0;
+			float amplitude = 1.0;
+			float maxAmplitude = 0.0;
+			[unroll]
+			for ( int i = 0; i < 4; i++ )
+			{
+				sum += amplitude * snoise( p );
+				maxAmplitude += amplitude;
+				p *= lacunarity;
+				amplitude *= gain;
+			}
+			return sum / maxAmplitude;
+		}
+
+		float HenyeyGreenstein( float g, float cosTheta )
+		{
+			float g2 = g * g;
+			float denom = 1.0 + g2 - 2.0 * g * cosTheta;
+			return (1.0 - g2) / (4.0 * 3.14159265 * pow( denom, 1.5 ));
+		}
 		float4 tessFunction( appdata_full v0, appdata_full v1, appdata_full v2 )
 		{
 			return UnityDistanceBasedTess( v0.vertex, v1.vertex, v2.vertex, _TessMin, _TessMax, _TessValue );
@@ -208,39 +254,103 @@ Shader "_Clouds/Clouds Unlit Vertex Color"
 			v.vertex.xyz += ( ( objToWorldDir239 * _NoiseStrengthA * temp_output_8_0 ) + ( objToWorldDir213 * (0.0 + (simplePerlin3D78 - -1.0) * (1.0 - 0.0) / (1.0 - -1.0)) * _NoiseStrengthB ) + ( objToWorldDir257 * (0.0 + (simplePerlin3D255 - -1.0) * (1.0 - 0.0) / (1.0 - -1.0)) * _NoiseStrengthC ) );
 		}
 
-		inline half4 LightingUnlit( SurfaceOutput s, half3 lightDir, half atten )
-		{
-			return half4 ( 0, 0, 0, s.Alpha );
-		}
+			inline half4 LightingCustomCloud( SurfaceOutput s, half3 lightDir, half atten )
+			{
+				return half4( s.Emission, s.Alpha );
+			}
 
-		void surf( Input i , inout SurfaceOutput o )
-		{
-			o.Normal = float3(0,0,1);
-			float3 ase_worldPos = i.worldPos;
-			float3 ase_worldNormal = WorldNormalVector( i, float3( 0, 0, 1 ) );
-			float mulTime248 = _Time.y * _SpeedC;
-			float3 temp_output_252_0 = ( ( _DirectionC * mulTime248 ) + ( _3dNoiseSizeC * ( ase_worldPos * _NoiseScaleC ) ) );
-			float3 NoiseWorldPos364 = temp_output_252_0;
-			float4 triplanar194 = TriplanarSamplingSF( _TopTexture0, NoiseWorldPos364, ase_worldNormal, _Fallof, _Tiling, 1.0, 0 );
-			float mulTime15 = _Time.y * _SpeedA;
-			float simplePerlin3D3 = snoise( ( ( _DirectionA * mulTime15 ) + ( _3dNoiseSizeA * ( ase_worldPos * _NoiseScaleA ) ) ) );
-			float temp_output_8_0 = (0.0 + (simplePerlin3D3 - -1.0) * (1.0 - 0.0) / (1.0 - -1.0));
-			float NoiseA366 = temp_output_8_0;
-			float2 appendResult376 = (float2(ase_worldPos.x , ase_worldPos.z));
-			float simplePerlin2D374 = snoise( ( appendResult376 * 0.1 ) );
-			float4 lerpResult210 = lerp( saturate( ( pow( i.vertexColor , 0.454545 ) * _VertexColorMult ) ) , _TextureColor , ( ( ( 1.0 - triplanar194.x ) * _textureDetail ) * saturate( NoiseA366 ) * (0.25 + (simplePerlin2D374 - -1.0) * (1.0 - 0.25) / (1.0 - -1.0)) ));
-			float3 ase_worldViewDir = normalize( UnityWorldSpaceViewDir( ase_worldPos ) );
-			float fresnelNdotV346 = dot( ase_worldNormal, ase_worldViewDir );
-			float fresnelNode346 = ( _FresnelBSP.x + _FresnelBSP.y * pow( 1.0 - fresnelNdotV346, _FresnelBSP.z ) );
-			o.Emission = saturate( ( lerpResult210 + ( fresnelNode346 * _RimColor ) ) ).rgb;
-			o.Alpha = 1;
-		}
+			inline half4 LightingCustomCloud( SurfaceOutput s, half3 lightDir, half3 viewDir, half atten )
+			{
+				return half4( s.Emission, s.Alpha );
+			}
 
-		ENDCG
-		CGPROGRAM
-		#pragma surface surf Unlit keepalpha fullforwardshadows vertex:vertexDataFunc tessellate:tessFunction 
+			void surf( Input i , inout SurfaceOutput o )
+			{
+				o.Normal = float3(0,0,1);
+				float3 ase_worldPos = i.worldPos;
+				float3 ase_worldNormal = WorldNormalVector( i, float3( 0, 0, 1 ) );
 
-		ENDCG
+				// --- Existing noise & texture computations (unchanged) ---
+				float mulTime248 = _Time.y * _SpeedC;
+				float3 temp_output_252_0 = ( ( _DirectionC * mulTime248 ) + ( _3dNoiseSizeC * ( ase_worldPos * _NoiseScaleC ) ) );
+				float3 NoiseWorldPos364 = temp_output_252_0;
+				float4 triplanar194 = TriplanarSamplingSF( _TopTexture0, NoiseWorldPos364, ase_worldNormal, _Fallof, _Tiling, 1.0, 0 );
+				float mulTime15 = _Time.y * _SpeedA;
+				float simplePerlin3D3 = snoise( ( ( _DirectionA * mulTime15 ) + ( _3dNoiseSizeA * ( ase_worldPos * _NoiseScaleA ) ) ) );
+				float temp_output_8_0 = (0.0 + (simplePerlin3D3 - -1.0) * (1.0 - 0.0) / (1.0 - -1.0));
+				float NoiseA366 = temp_output_8_0;
+				float2 appendResult376 = (float2(ase_worldPos.x , ase_worldPos.z));
+				float simplePerlin2D374 = snoise( ( appendResult376 * 0.1 ) );
+				float4 lerpResult210 = lerp( saturate( ( pow( i.vertexColor , 0.454545 ) * _VertexColorMult ) ) , _TextureColor , ( ( ( 1.0 - triplanar194.x ) * _textureDetail ) * saturate( NoiseA366 ) * (0.25 + (simplePerlin2D374 - -1.0) * (1.0 - 0.25) / (1.0 - -1.0)) ));
+				float3 ase_worldViewDir = normalize( UnityWorldSpaceViewDir( ase_worldPos ) );
+				float fresnelNdotV346 = dot( ase_worldNormal, ase_worldViewDir );
+				float fresnelNode346 = ( _FresnelBSP.x + _FresnelBSP.y * pow( 1.0 - fresnelNdotV346, _FresnelBSP.z ) );
+
+				// --- HZD Lighting: Density estimation ---
+				float rawDensity = saturate( i.vertexColor.a * _DensityScale * (0.5 + 0.5 * NoiseA366) );
+				float viewThickness = saturate( 1.0 - fresnelNdotV346 );
+				float thickness = rawDensity * (0.3 + 0.7 * viewThickness);
+
+				// --- HZD Lighting: Beer-Lambert ---
+				float beersLaw = exp( -thickness * _Absorption );
+
+				// --- HZD Lighting: Beer-Powder (multi-scattering) ---
+				float powder = pow( max(beersLaw, 0.001), 0.25 ) + 1.0 - pow( max(1.0 - beersLaw, 0.001), 4.0 );
+				powder = saturate( powder );
+
+				// --- HZD Lighting: Light direction & color ---
+				float3 lightDir = normalize( _WorldSpaceLightPos0.xyz );
+				float3 lightColor = _LightColor0.rgb;
+
+				// --- HZD Lighting: Wrap diffuse ---
+				float NdotL = dot( ase_worldNormal, lightDir );
+				float wrapDiffuse = saturate( (NdotL + _WrapLighting) / (1.0 + _WrapLighting) );
+
+				// --- HZD Lighting: Henyey-Greenstein phase function ---
+				float cosTheta = dot( lightDir, ase_worldViewDir );
+				float phase = HenyeyGreenstein( _PhaseG, cosTheta );
+				float isotropic = 1.0 / (4.0 * 3.14159265);
+				float phaseBlended = lerp( isotropic, phase, _PhaseStrength );
+
+				// --- HZD Lighting: Combine direct lighting ---
+				float3 baseColor = saturate( lerpResult210.rgb );
+				float3 directLight = baseColor * lightColor;
+
+				// Diffuse with Beer-Lambert extinction
+				float3 diffuseContrib = directLight * wrapDiffuse * beersLaw;
+
+				// Forward scattering (silver lining)
+				float3 scatterContrib = directLight * phaseBlended * 2.0 * (1.0 - beersLaw);
+
+				// Powder brightening on sunlit side
+				float3 powderContrib = directLight * powder * _PowderEffect * 0.5;
+
+				float3 litColor = (diffuseContrib + scatterContrib + powderContrib) * _LightMultiplier;
+
+				// --- HZD Lighting: Ambient gradient ---
+				float normalY = ase_worldNormal.y;
+				float ambientBlend = saturate( normalY * 0.5 + 0.5 );
+				float3 ambientColor = lerp( (float3)_AmbientGroundColor, (float3)_AmbientSkyColor, ambientBlend );
+				float3 ambientContrib = ambientColor * baseColor * 0.35;
+
+				// --- Fresnel rim ---
+				float3 rimContrib = fresnelNode346 * (float3)_RimColor;
+
+				// --- Final emission ---
+				o.Emission = litColor + ambientContrib + rimContrib;
+
+				// --- Depth fade alpha ---
+				float rawDepth = LinearEyeDepth( SAMPLE_DEPTH_TEXTURE_PROJ( _CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos) ) );
+				float sceneDepth = rawDepth - i.screenPos.w;
+				float depthFade = saturate( sceneDepth / max(_Fallof, 0.001) );
+				o.Alpha = depthFade * saturate( rawDensity + 0.3 );
+			}
+
+			ENDCG
+			CGPROGRAM
+			#pragma surface surf CustomCloud keepalpha fullforwardshadows vertex:vertexDataFunc tessellate:tessFunction alpha:fade
+
+			ENDCG
 		Pass
 		{
 			Name "ShadowCaster"
@@ -309,6 +419,7 @@ Shader "_Clouds/Clouds Unlit Vertex Color"
 				SurfaceOutput o;
 				UNITY_INITIALIZE_OUTPUT( SurfaceOutput, o )
 				surf( surfIN, o );
+				clip( o.Alpha - 0.1 );
 				#if defined( CAN_SKIP_VPOS )
 				float2 vpos = IN.pos;
 				#endif
