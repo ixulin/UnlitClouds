@@ -13,7 +13,7 @@ Material:
   m_LightmapFlags: 0
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
+  m_CustomRenderQueue: 2000
   stringTagMap: {}
   disabledShaderPasses: []
   m_SavedProperties:
@@ -28,7 +28,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _TopTexture0:
-        m_Texture: {fileID: 2800000, guid: eb00b4ba341797f46892baf5b3b37a79, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _TopTexture1:
@@ -44,20 +44,27 @@ Material:
     - _3dNoiseSizeA: 0.8
     - _3dNoiseSizeB: 1.49
     - _3dNoiseSizeC: 5
+    - _Absorption: 4.28
     - _Cutoff: 0.5
+    - _DensityScale: 1
     - _Detailstrength: 0.102
+    - _EdgeFade: 1
     - _EdgeLength: 2.9
     - _Fallof: 1
     - _Float3: -3.29
     - _Float4: 0
     - _Float5: 1
+    - _LightMultiplier: 1
     - _Metallic: 1
     - _NoiseStrength: 0.139
     - _NoiseStrengthA: 0.472
     - _NoiseStrengthB: 0.182
     - _NoiseStrengthC: 0.071
+    - _PhaseG: -0.654
+    - _PhaseStrength: 1
     - _PlayerHole: -1.01
     - _PlayerRadius: 1.79
+    - _PowderEffect: 1.061
     - _Roughness: 0
     - _ShadowNoise: 0
     - _Shininess: 0.1
@@ -68,9 +75,10 @@ Material:
     - _TessMax: 10.94
     - _TessMin: 0.7
     - _TessPhongStrength: 0.241
-    - _TessValue: 21.6
+    - _TessValue: 18
     - _VertexColorMult: 1.16
     - _Wrap: -1
+    - _WrapLighting: 1
     - __dirty: 0
     - _blendfadedist: 0.388
     - _dotPower: 6.98
@@ -87,6 +95,8 @@ Material:
     - _textureDetail: 1
     - _wrap: 1
     m_Colors:
+    - _AmbientGroundColor: {r: 0.745283, g: 0.6037847, b: 0.50271446, a: 1}
+    - _AmbientSkyColor: {r: 0.6, g: 0.7, b: 0.9, a: 1}
     - _Col: {r: 0.4690726, g: 0.7463053, b: 0.7830189, a: 0}
     - _Color0: {r: 0.509434, g: 0.43494126, b: 0.5047782, a: 1}
     - _DetailColor: {r: 1, g: 1, b: 1, a: 1}
@@ -101,7 +111,7 @@ Material:
     - _NoiseScaleB: {r: 1, g: 1, b: 1, a: 0}
     - _NoiseScaleC: {r: 1, g: 1, b: 2.02, a: 0}
     - _PlayerPos: {r: 1.77, g: 6.11, b: -31.65, a: 0}
-    - _RimColor: {r: 0.14150941, g: 0.14150941, b: 0.07542719, a: 0}
+    - _RimColor: {r: 0.8584906, g: 0.8584906, b: 0.8584906, a: 0}
     - _SmoothStep: {r: 0.2, g: 0.83, b: 0, a: 0}
     - _TextureColor: {r: 0.509434, g: 0.43494126, b: 0.5047782, a: 1}
     - _Tiling: {r: 0.04, g: 0.04, b: 0, a: 0}
