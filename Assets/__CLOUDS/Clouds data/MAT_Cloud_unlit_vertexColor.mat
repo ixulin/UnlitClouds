@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: MAT_Cloud_unlit_vertexColor
-  m_Shader: {fileID: 4800000, guid: 5f9da8a4a2663eb479c175487d2f421c, type: 3}
+  m_Shader: {fileID: 4800000, guid: 46ef3eb21f0f40c3b8b2d393b3da6bfd, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 0
   m_EnableInstancingVariants: 0
@@ -20,11 +20,15 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _DitherNoise:
-        m_Texture: {fileID: 2800000, guid: eb00b4ba341797f46892baf5b3b37a79, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _Dithernoise:
         m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _PerlinWorleyTex:
+        m_Texture: {fileID: 11700000, guid: 523827eb5d7721240b792d0fb5c67357, type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _TopTexture0:
@@ -33,6 +37,10 @@ Material:
         m_Offset: {x: 0, y: 0}
     - _TopTexture1:
         m_Texture: {fileID: 2800000, guid: eb00b4ba341797f46892baf5b3b37a79, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _WorleyTex:
+        m_Texture: {fileID: 11700000, guid: 92bd8f36ed6a5e24ca695524447f096f, type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _texcoord:
@@ -45,28 +53,50 @@ Material:
     - _3dNoiseSizeB: 1.49
     - _3dNoiseSizeC: 5
     - _Absorption: 4.28
+    - _CloudBaseY: 0
+    - _CloudTopY: 5
+    - _CloudType: 0.4
+    - _Coverage: 0.6
     - _Cutoff: 0.5
+    - _DensityMultiplier: 1
     - _DensityScale: 1
+    - _DetailFrequency: 0.08
     - _Detailstrength: 0.102
     - _EdgeFade: 1
     - _EdgeLength: 2.9
+    - _ErosionStrength: 0.3
+    - _Extinction: 0.5
     - _Fallof: 1
     - _Float3: -3.29
     - _Float4: 0
     - _Float5: 1
+    - _FresnelBase: 0.41
+    - _FresnelPower: 3.65
+    - _FresnelScale: 1
+    - _InteriorSteps: 16
     - _LightMultiplier: 1
     - _Metallic: 1
+    - _NoiseFrequency: 0.02
+    - _NoiseSizeA: 0.8
+    - _NoiseSizeB: 1.49
+    - _NoiseSizeC: 5
     - _NoiseStrength: 0.139
     - _NoiseStrengthA: 0.472
     - _NoiseStrengthB: 0.182
     - _NoiseStrengthC: 0.071
+    - _PhaseBlend: 0.2
     - _PhaseG: -0.654
+    - _PhaseG1: 0.8
+    - _PhaseG2: -0.5
     - _PhaseStrength: 1
     - _PlayerHole: -1.01
     - _PlayerRadius: 1.79
     - _PowderEffect: 1.061
+    - _RaymarchMaxDist: 20
     - _Roughness: 0
+    - _ShadowMaxDist: 15
     - _ShadowNoise: 0
+    - _ShadowSteps: 6
     - _Shininess: 0.1
     - _Speed: 0.69
     - _SpeedA: 0.5
@@ -77,6 +107,7 @@ Material:
     - _TessPhongStrength: 0.241
     - _TessValue: 18
     - _VertexColorMult: 1.16
+    - _VertexNoiseFrequency: 0.02
     - _Wrap: -1
     - _WrapLighting: 1
     - __dirty: 0

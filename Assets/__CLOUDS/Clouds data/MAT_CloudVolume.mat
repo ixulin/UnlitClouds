@@ -1,0 +1,74 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 6
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: MAT_CloudVolume
+  m_Shader: {fileID: 4800000, guid: 46ef3eb21f0f40c3b8b2d393b3da6bfd, type: 3}
+  m_ShaderKeywords:
+  m_LightmapFlags: 0
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: 3000
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _PerlinWorleyTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _WorleyTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DitherNoise:
+        m_Texture: {fileID: 2800000, guid: eb00b4ba341797f46892baf5b3b37a79, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Floats:
+    - _NoiseSizeA: 0.8
+    - _SpeedA: 0.5
+    - _NoiseStrengthA: 0.472
+    - _NoiseSizeB: 1.49
+    - _SpeedB: 1.0
+    - _NoiseStrengthB: 0.182
+    - _NoiseSizeC: 5.0
+    - _SpeedC: 10.36
+    - _NoiseStrengthC: 0.071
+    - _CloudBaseY: 0
+    - _CloudTopY: 5
+    - _Coverage: 0.6
+    - _CloudType: 0.4
+    - _DensityMultiplier: 1.0
+    - _ErosionStrength: 0.3
+    - _InteriorSteps: 16
+    - _RaymarchMaxDist: 20
+    - _Extinction: 0.5
+    - _ShadowSteps: 6
+    - _ShadowMaxDist: 15
+    - _Absorption: 3.0
+    - _PhaseG1: 0.8
+    - _PhaseG2: -0.5
+    - _PhaseBlend: 0.2
+    - _PowderEffect: 1.0
+    - _LightMultiplier: 1.5
+    - _VertexColorMult: 1.16
+    - _FresnelBase: 0.41
+    - _FresnelScale: 1.0
+    - _FresnelPower: 3.65
+    m_Colors:
+    - _NoiseScaleA: {r: 1, g: 1, b: 1, a: 0}
+    - _DirectionA: {r: 1.5, g: 0, b: 0, a: 0}
+    - _NoiseScaleB: {r: 1, g: 1, b: 1, a: 0}
+    - _DirectionB: {r: 1.48, g: -0.86, b: -0.36, a: 0}
+    - _NoiseScaleC: {r: 1, g: 1, b: 2.02, a: 0}
+    - _DirectionC: {r: 1, g: 0, b: 0, a: 0}
+    - _AmbientSkyColor: {r: 0.6, g: 0.7, b: 0.9, a: 1}
+    - _AmbientGroundColor: {r: 0.15, g: 0.12, b: 0.1, a: 1}
+    - _RimColor: {r: 0.86, g: 0.86, b: 0.86, a: 1}
