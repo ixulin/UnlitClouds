@@ -2,16 +2,18 @@
 
 - [x] 1.1 创建 `CloudZD.shader`：顶点色 + 简单方向光 + ambient，能正常渲染云 Mesh
 
-## 2. Ray Marching + 简单密度
+## 2. 深度图方案
 
-- [x] 2.1 添加 Ray March 主循环（从表面沿相机方向穿入 mesh），密度 = 常量（mesh 内实心）
-- [x] 2.2 添加 Beer-Lambert 透射率衰减和散射光累积，最终颜色合成
+- [ ] 2.1 实现 Camera Front Face Depth Pass（Cull Back，输出线性深度到 `_CameraFrontDepth`）
+- [ ] 2.2 实现 Camera Back Face Depth Pass（Cull Front，输出线性深度到 `_CameraBackDepth`）
+- [ ] 2.3 实现 Sun Front Face Depth Pass（从灯光方向渲染，输出线性深度到 `_SunFrontDepth`）
+- [ ] 2.4 实现 Sun Back Face Depth Pass（从灯光方向 Cull Front，输出线性深度到 `_SunBackDepth`）
 
-## 3. Beer-Lambert 完善 + Powder Effect
+## 3. 深度驱动的主渲染 Pass
 
-- [ ] 3.1 实现 `SampleSunOcclusion()` 朝日 shadow ray
-- [ ] 3.2 实现 Powder Effect（`powder = 1 - exp(-opticalDepth * 2)`，与 Beer 取 max）
-- [ ] 3.3 实现 Multi-Scatter 近似（`exp(-opticalDepth * 0.25)`）
+- [ ] 3.1 在主 Fragment Shader 中采样四张深度图，计算 view thickness 和 sun thickness
+- [ ] 3.2 用 thickness 计算 Beer-Lambert 透射率和 sun occlusion，替代 ray march
+- [ ] 3.3 实现 Powder Effect（基于 sun thickness）和 Multi-Scatter 近似
 
 ## 4. 相位函数 + 环境光
 
@@ -21,7 +23,7 @@
 ## 5. Shadow Caster + 调试
 
 - [ ] 5.1 实现 Shadow Caster Pass
-- [ ] 5.2 实现调试可视化（Density / Transmittance 模式）
+- [ ] 5.2 实现调试可视化（Depth / Thickness / Transmittance 模式）
 
 ## 6. 验证
 

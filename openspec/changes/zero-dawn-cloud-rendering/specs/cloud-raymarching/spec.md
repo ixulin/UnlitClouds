@@ -1,42 +1,51 @@
 ## ADDED Requirements
 
-### Requirement: Interior ray marching
-The shader SHALL perform ray marching from the mesh surface inward along the camera→surface direction. The ray starts at `surfacePos + rayDir * 0.05` (slight offset to avoid self-intersection) and advances by `stepSize = _RaymarchMaxDist / _InteriorSteps` for up to `_InteriorSteps` iterations.
+### Requirement: Camera-view front face depth texture
+The shader system SHALL render the cloud mesh's front face (Cull Back) depth into a depth texture `_CameraFrontDepth` from the camera's perspective. This texture captures the nearest cloud surface distance per pixel.
 
-#### Scenario: Ray traversal through cloud
-- **WHEN** the fragment shader executes on a cloud surface pixel
-- **THEN** a ray is cast from just inside the surface, stepping deeper into the mesh, accumulating scattered light and reducing transmittance at each density sample
+#### Scenario: Front face depth capture
+- **WHEN** the depth pre-pass executes with Cull Back from camera
+- **THEN** each pixel stores the linear depth of the closest cloud surface facing the camera
 
-#### Scenario: Configurable step count
-- **WHEN** `_InteriorSteps` is set higher (e.g., 64-128)
-- **THEN** the ray march produces smoother, more detailed density transitions but at higher GPU cost
+### Requirement: Camera-view back face depth texture
+The shader system SHALL render the cloud mesh's back face (Cull Front) depth into a depth texture `_CameraBackDepth` from the camera's perspective. This captures the farthest cloud surface distance per pixel.
 
-### Requirement: Shadow ray marching toward sun
-At each density sample during the interior ray march, the shader SHALL cast a short shadow ray toward the main light direction. This ray samples `_ShadowSteps` steps over `_ShadowMaxDist`, accumulating occlusion: `occlusion *= exp(-density * stepSize * _Extinction * 2.0)`.
+#### Scenario: Back face depth capture
+- **WHEN** the depth pre-pass executes with Cull Front from camera
+- **THEN** each pixel stores the linear depth of the farthest cloud surface
 
-#### Scenario: Self-shadowing
-- **WHEN** a cloud sample has dense cloud material between it and the sun
-- **THEN** the shadow ray detects this and reduces sun occlusion, making the sample darker
+### Requirement: Sun-view front face depth texture
+The shader system SHALL render the cloud mesh's front face depth into `_SunFrontDepth` from the main light's perspective. This is used to determine sun-side cloud boundary.
 
-#### Scenario: Shadow ray early exit
-- **WHEN** accumulated occlusion drops below 0.01 during shadow ray march
-- **THEN** the shadow loop breaks early
+#### Scenario: Sun front face depth
+- **WHEN** the depth pre-pass executes from the light direction
+- **THEN** each pixel stores the nearest cloud surface depth as seen from the sun
 
-### Requirement: Blue noise dithering
-The shader SHALL use a 2D blue noise texture (`_DitherNoise`) to jitter the ray march start position: `jitter = ditherValue * stepSize`. The dither is sampled at `screenUV * 4.0` for appropriate tiling.
+### Requirement: Sun-view back face depth texture
+The shader system SHALL render the cloud mesh's back face depth into `_SunBackDepth` from the main light's perspective.
 
-#### Scenario: Banding artifact removal
-- **WHEN** a ray march with fixed step size would produce visible banding in density transitions
-- **THEN** the blue noise jitter smooths these bands into imperceptible noise
+#### Scenario: Sun back face depth
+- **WHEN** the depth pre-pass executes from the light direction with Cull Front
+- **THEN** each pixel stores the farthest cloud surface depth as seen from the sun
 
-### Requirement: Configurable ray march parameters
-The shader SHALL expose:
-- `_InteriorSteps`: Range(2, 128), default 48
-- `_RaymarchMaxDist`: Float, default 20
-- `_Extinction`: Range(0.1, 5), default 0.5
-- `_ShadowSteps`: Range(1, 32), default 8
-- `_ShadowMaxDist`: Float, default 15
+### Requirement: Depth-based inside-cloud detection
+The main lighting shader SHALL determine if the current fragment's world position is inside the cloud by comparing its depth against the front/back face depth pair from both camera and sun views. A point is inside the cloud if its depth falls between front and back face depths.
 
-#### Scenario: Performance tuning
-- **WHEN** `_InteriorSteps` is reduced to 16 and `_ShadowSteps` to 3
-- **THEN** rendering is faster but cloud interior detail is coarser
+#### Scenario: Inside cloud volume
+- **WHEN** the fragment's linear depth from camera is between `_CameraFrontDepth` and `_CameraBackDepth`
+- **THEN** the fragment is inside the cloud volume and density > 0
+
+#### Scenario: Outside cloud volume
+- **WHEN** the fragment's linear depth is outside the front/back depth range
+- **THEN** density = 0 (not inside cloud)
+
+### Requirement: Depth-derived thickness for Beer-Lambert
+The shader SHALL compute cloud thickness as `thickness = backDepth - frontDepth` for both camera view and sun view. Camera thickness drives view-direction transmittance; sun thickness drives self-shadowing.
+
+#### Scenario: Camera thickness
+- **WHEN** the main shader computes view-direction thickness
+- **THEN** `viewThickness = _CameraBackDepth - _CameraFrontDepth` gives the total cloud depth along the view ray
+
+#### Scenario: Sun thickness (self-shadowing)
+- **WHEN** computing sun occlusion at a point
+- **THEN** `sunThickness = _SunBackDepth - _SunFrontDepth` gives the cloud depth along the sun ray, driving Beer-Lambert shadow attenuation
