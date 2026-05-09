@@ -4,8 +4,8 @@
 
 ## 2. Ray Marching + 简单密度
 
-- [ ] 2.1 添加 Ray March 主循环（从表面沿相机方向穿入 mesh），密度 = 常量（mesh 内实心）
-- [ ] 2.2 添加 Beer-Lambert 透射率衰减和散射光累积，最终颜色合成
+- [x] 2.1 添加 Ray March 主循环（从表面沿相机方向穿入 mesh），密度 = 常量（mesh 内实心）
+- [x] 2.2 添加 Beer-Lambert 透射率衰减和散射光累积，最终颜色合成
 
 ## 3. Beer-Lambert 完善 + Powder Effect
 
