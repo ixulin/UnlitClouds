@@ -3,25 +3,99 @@ Shader "_Clouds/Cloud ZD"
     Properties
     {
         _VertexColorMult("Vertex Color Mult", Range(0, 3)) = 1.16
-
-        // Ray Marching
         _Density("Base Density", Range(0.1, 5)) = 1.0
-        _InteriorSteps("Interior Steps", Range(2, 128)) = 32
-        _RaymarchMaxDist("Raymarch Max Distance", Float) = 10
-        _Extinction("Extinction", Range(0.1, 5)) = 1.0
         _Absorption("Light Absorption", Range(0.1, 10)) = 2.0
     }
 
     SubShader
     {
-        Tags
+        Tags { "RenderType" = "Transparent" "Queue" = "Transparent" "RenderPipeline" = "UniversalPipeline" }
+
+        // ========================================
+        // Pass 0: Depth Front Face (nearest)
+        // ========================================
+        Pass
         {
-            "RenderType" = "Transparent"
-            "Queue" = "Transparent"
-            "RenderPipeline" = "UniversalPipeline"
-            "IgnoreProjector" = "True"
+            Name "DepthFront"
+            Tags { "LightMode" = "DepthFront" }
+            Cull Back
+            ZWrite Off
+            ZTest Always
+            ColorMask R
+            BlendOp Min
+            Blend One One
+
+            HLSLPROGRAM
+            #pragma vertex DepthVert
+            #pragma fragment DepthFrag
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+            struct DepthVaryings
+            {
+                float4 positionCS : SV_POSITION;
+                float linearDepth : TEXCOORD0;
+            };
+
+            DepthVaryings DepthVert(float4 positionOS : POSITION)
+            {
+                DepthVaryings o;
+                float3 positionWS = TransformObjectToWorld(positionOS.xyz);
+                o.positionCS = TransformWorldToHClip(positionWS);
+                o.linearDepth = -TransformWorldToView(positionWS).z;
+                return o;
+            }
+
+            float DepthFrag(DepthVaryings input) : SV_Target
+            {
+                return input.linearDepth;
+            }
+            ENDHLSL
         }
 
+        // ========================================
+        // Pass 1: Depth Back Face (farthest)
+        // ========================================
+        Pass
+        {
+            Name "DepthBack"
+            Tags { "LightMode" = "DepthBack" }
+            Cull Front
+            ZWrite Off
+            ZTest Always
+            ColorMask R
+            BlendOp Max
+            Blend One One
+
+            HLSLPROGRAM
+            #pragma vertex DepthVert
+            #pragma fragment DepthFrag
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+            struct DepthVaryings
+            {
+                float4 positionCS : SV_POSITION;
+                float linearDepth : TEXCOORD0;
+            };
+
+            DepthVaryings DepthVert(float4 positionOS : POSITION)
+            {
+                DepthVaryings o;
+                float3 positionWS = TransformObjectToWorld(positionOS.xyz);
+                o.positionCS = TransformWorldToHClip(positionWS);
+                o.linearDepth = -TransformWorldToView(positionWS).z;
+                return o;
+            }
+
+            float DepthFrag(DepthVaryings input) : SV_Target
+            {
+                return input.linearDepth;
+            }
+            ENDHLSL
+        }
+
+        // ========================================
+        // Pass 2: Forward Lit (depth-driven)
+        // ========================================
         Pass
         {
             Name "ForwardLit"
@@ -46,11 +120,14 @@ Shader "_Clouds/Cloud ZD"
             CBUFFER_START(UnityPerMaterial)
                 float _VertexColorMult;
                 float _Density;
-                float _InteriorSteps;
-                float _RaymarchMaxDist;
-                float _Extinction;
                 float _Absorption;
             CBUFFER_END
+
+            TEXTURE2D(_CameraFrontDepth); SAMPLER(sampler_CameraFrontDepth);
+            TEXTURE2D(_CameraBackDepth);   SAMPLER(sampler_CameraBackDepth);
+            TEXTURE2D(_SunFrontDepth);     SAMPLER(sampler_SunFrontDepth);
+            TEXTURE2D(_SunBackDepth);      SAMPLER(sampler_SunBackDepth);
+            float4x4 _LightViewProj;
 
             struct Attributes
             {
@@ -71,12 +148,6 @@ Shader "_Clouds/Cloud ZD"
                 UNITY_VERTEX_INPUT_INSTANCE_ID
                 UNITY_VERTEX_OUTPUT_STEREO
             };
-
-            // Simple density: constant inside mesh
-            float SampleDensity(float3 positionWS)
-            {
-                return _Density;
-            }
 
             Varyings vert(Attributes input)
             {
@@ -105,64 +176,37 @@ Shader "_Clouds/Cloud ZD"
                 half3 N = NormalizeNormalPerPixel(input.normalWS);
                 half3 V = SafeNormalize(input.viewDirWS);
 
-                // Surface albedo from vertex color
                 half4 tint = saturate(pow(saturate(input.color), 0.454545) * _VertexColorMult);
-                half3 surfaceAlbedo = tint.rgb;
-                half vertexDensity = saturate(input.color.a);
+                half3 albedo = tint.rgb;
 
-                // Simple directional light for scattering
+                // Camera thickness
+                float2 screenUV = input.positionCS.xy / _ScreenParams.xy;
+                float camFront = SAMPLE_TEXTURE2D(_CameraFrontDepth, sampler_CameraFrontDepth, screenUV).r;
+                float camBack  = SAMPLE_TEXTURE2D(_CameraBackDepth, sampler_CameraBackDepth, screenUV).r;
+                float viewThickness = max(camBack - camFront, 0.0);
+
+                // Sun thickness
+                float4 lightClip = mul(_LightViewProj, float4(input.positionWS, 1.0));
+                float2 lightUV = lightClip.xy * 0.5 + 0.5;
+                float sunFront = SAMPLE_TEXTURE2D(_SunFrontDepth, sampler_SunFrontDepth, lightUV).r;
+                float sunBack  = SAMPLE_TEXTURE2D(_SunBackDepth, sampler_SunBackDepth, lightUV).r;
+                float sunThickness = max(sunBack - sunFront, 0.0);
+
+                // Beer-Lambert
+                float viewTransmittance = exp(-viewThickness * _Density * _Absorption);
+                float sunOcclusion = exp(-sunThickness * _Density * _Absorption);
+
+                // Simple lighting
                 Light mainLight = GetMainLight();
                 half3 L = SafeNormalize(mainLight.direction);
-                half3 lightColor = mainLight.color * mainLight.distanceAttenuation * mainLight.shadowAttenuation;
+                half ndotL = saturate(dot(N, L));
+                half3 directLight = mainLight.color * (ndotL * 0.8 + 0.2) * sunOcclusion;
+                half3 ambient = half3(0.4, 0.45, 0.55) * albedo * 0.35;
 
-                // Ray setup: camera -> surface, then march inward
-                float3 rayOrigin = GetCameraPositionWS();
-                float3 rayDir = SafeNormalize(input.positionWS - rayOrigin);
-                float3 marchStart = input.positionWS + rayDir * 0.05;
-
-                float stepSize = _RaymarchMaxDist / _InteriorSteps;
-                int maxSteps = (int)_InteriorSteps;
-
-                float transmittance = 1.0;
-                half3 scatteredLight = half3(0, 0, 0);
-
-                // Ray march loop
-                for (int i = 0; i < 128; i++)
-                {
-                    if (i >= maxSteps) break;
-
-                    float3 pos = marchStart + rayDir * ((float)i + 0.5) * stepSize;
-                    float d = SampleDensity(pos) * vertexDensity;
-
-                    if (d > 0.001)
-                    {
-                        // Beer-Lambert: optical depth drives attenuation
-                        float opticalDepth = d * stepSize * _Extinction;
-                        float beersLaw = exp(-opticalDepth);
-
-                        // Simple lighting per sample: N·L wrap diffuse
-                        half ndotL = saturate(dot(N, L));
-                        half3 sampleLight = lightColor * (ndotL * 0.8 + 0.2);
-
-                        // Accumulate scattered light weighted by transmittance
-                        scatteredLight += sampleLight * surfaceAlbedo * transmittance * (1.0 - beersLaw);
-
-                        // Beer-Lambert transmittance decay
-                        transmittance *= beersLaw;
-
-                        if (transmittance < 0.01) break;
-                    }
-                }
-
-                // Final compositing
-                half3 color = surfaceAlbedo * transmittance + scatteredLight;
-
-                // Simple ambient
-                half3 ambient = half3(0.4, 0.45, 0.55) * surfaceAlbedo * 0.35;
-                color += ambient;
+                half3 color = albedo * directLight * viewTransmittance + ambient;
 
                 color = MixFog(color, input.fogFactor);
-                float alpha = saturate(1.0 - transmittance) * vertexDensity;
+                float alpha = saturate(1.0 - viewTransmittance) * tint.a;
                 alpha = max(alpha, 0.05);
 
                 return half4(color, alpha);
